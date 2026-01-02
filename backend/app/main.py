@@ -26,8 +26,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+# Include routers - FIXED!
+app.include_router(auth.router, prefix="/api")  # ← Keep only this one!
 app.include_router(content.router, prefix="/api/content", tags=["Content"])
 app.include_router(cognitive_load.router, prefix="/api/cognitive-load", tags=["Cognitive Load"])
 app.include_router(engagement.router, prefix="/api/engagement", tags=["Engagement"])
@@ -48,6 +48,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+# Debug: Print all routes
+print("🚀 Adaptive Learning Platform API Starting...")
+print("\n📋 Available Routes:")
+for route in app.routes:
+    print(f"  {route.methods if hasattr(route, 'methods') else ''} {route.path}")
 
 
 if __name__ == "__main__":
