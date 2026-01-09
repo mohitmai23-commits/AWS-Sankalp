@@ -3,15 +3,26 @@ import { useEffect, useRef } from 'react';
 export default function IntersectionObserverWrapper({ children, onInteractionUpdate }) {
   const containerRef = useRef(null);
   const scrollData = useRef({ depth: 0, speed: 0, backForth: 0 });
-  const hoverData = useRef({ elements: {}, avgDuration: 0 });
-  const timeData = useRef({ sections: {}, avgTime: 0 });
+  const hoverData = useRef({ totalHoverTime: 0, hoverCount: 0, avgDuration: 0 });
+  const mouseData = useRef({ movements: [], erraticScore: 0 });
+  const lastMousePos = useRef({ x: 0, y: 0, time: Date.now() });
+  
+  const viewingData = useRef({
+    currentlyViewing: new Set(),
+    sectionStartTimes: new Map(),
+    sectionTotalTimes: new Map(),
+    totalReadingTime: 0,
+    lastUpdateTime: Date.now()
+  });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    console.log('✅ Tracker initialized');
+
     // Scroll tracking
-    let lastScrollY = 0;
+    let lastScrollY = window.scrollY;
     let lastScrollTime = Date.now();
     let scrollDirection = 'down';
     let directionChanges = 0;
@@ -21,119 +32,201 @@ export default function IntersectionObserverWrapper({ children, onInteractionUpd
       const currentTime = Date.now();
       const timeDiff = (currentTime - lastScrollTime) / 1000;
 
-      // Calculate scroll speed
-      const distance = Math.abs(currentScrollY - lastScrollY);
-      const speed = distance / timeDiff;
+      if (timeDiff > 0.05) {
+        const distance = Math.abs(currentScrollY - lastScrollY);
+        const speed = distance / timeDiff;
 
-      // Track direction changes (back-forth scrolling)
-      const newDirection = currentScrollY > lastScrollY ? 'down' : 'up';
-      if (newDirection !== scrollDirection) {
-        directionChanges++;
+        const newDirection = currentScrollY > lastScrollY ? 'down' : 'up';
+        if (newDirection !== scrollDirection && distance > 20) {
+          directionChanges++;
+        }
+
+        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const depth = (currentScrollY / maxScroll) * 100;
+
+        scrollData.current = {
+          depth: Math.min(Math.max(depth, 0), 100),
+          speed: Math.min(speed, 1000),
+          backForth: directionChanges
+        };
+
+        lastScrollY = currentScrollY;
+        lastScrollTime = currentTime;
+        scrollDirection = newDirection;
       }
+    };
 
-      scrollData.current = {
-        depth: (currentScrollY / document.documentElement.scrollHeight) * 100,
-        speed: Math.min(speed, 1000), // Cap at 1000px/s
-        backForth: directionChanges
-      };
+    // Mouse tracking
+    const handleMouseMove = (e) => {
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastMousePos.current.time;
+      
+      if (timeDiff > 50) {
+        const dx = e.clientX - lastMousePos.current.x;
+        const dy = e.clientY - lastMousePos.current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const speed = distance / (timeDiff / 1000);
 
-      lastScrollY = currentScrollY;
-      lastScrollTime = currentTime;
-      scrollDirection = newDirection;
+        mouseData.current.movements.push({ speed, time: currentTime });
 
-      updateInteraction();
+        if (mouseData.current.movements.length > 30) {
+          mouseData.current.movements.shift();
+        }
+
+        if (mouseData.current.movements.length > 5) {
+          const speeds = mouseData.current.movements.map(m => m.speed);
+          const avgSpeed = speeds.reduce((a, b) => a + b) / speeds.length;
+          const variance = speeds.reduce((sum, s) => sum + Math.pow(s - avgSpeed, 2), 0) / speeds.length;
+          mouseData.current.erraticScore = Math.min(Math.sqrt(variance) / 500, 1);
+        }
+
+        lastMousePos.current = { x: e.clientX, y: e.clientY, time: currentTime };
+      }
     };
 
     // Hover tracking
+    let hoverStartTime = null;
+
     const handleMouseEnter = (e) => {
-      const element = e.target;
-      const elementId = element.dataset.trackId || element.tagName;
-      
-      hoverData.current.elements[elementId] = {
-        startTime: Date.now()
-      };
+      if (e.target.textContent && e.target.textContent.trim().length > 20) {
+        hoverStartTime = Date.now();
+      }
     };
 
     const handleMouseLeave = (e) => {
-      const element = e.target;
-      const elementId = element.dataset.trackId || element.tagName;
-      
-      if (hoverData.current.elements[elementId]) {
-        const duration = Date.now() - hoverData.current.elements[elementId].startTime;
-        hoverData.current.elements[elementId].duration = duration;
-        
-        // Calculate average hover duration
-        const durations = Object.values(hoverData.current.elements)
-          .filter(e => e.duration)
-          .map(e => e.duration);
-        
-        hoverData.current.avgDuration = durations.length > 0
-          ? durations.reduce((a, b) => a + b, 0) / durations.length
-          : 0;
+      if (hoverStartTime) {
+        const duration = Date.now() - hoverStartTime;
+        if (duration > 200 && duration < 30000) {
+          hoverData.current.totalHoverTime += duration;
+          hoverData.current.hoverCount++;
+          hoverData.current.avgDuration = hoverData.current.totalHoverTime / hoverData.current.hoverCount;
+        }
+        hoverStartTime = null;
       }
-
-      updateInteraction();
     };
 
-    // Intersection Observer for time per section
+    // Update reading time
+    const updateReadingTime = () => {
+      const now = Date.now();
+      const timeSinceLastUpdate = now - viewingData.current.lastUpdateTime;
+      
+      if (timeSinceLastUpdate < 2000) {
+        viewingData.current.currentlyViewing.forEach(sectionId => {
+          const currentTotal = viewingData.current.sectionTotalTimes.get(sectionId) || 0;
+          viewingData.current.sectionTotalTimes.set(sectionId, currentTotal + timeSinceLastUpdate);
+        });
+        
+        if (viewingData.current.currentlyViewing.size > 0) {
+          viewingData.current.totalReadingTime += timeSinceLastUpdate;
+        }
+      }
+      
+      viewingData.current.lastUpdateTime = now;
+      
+      const viewedSections = Array.from(viewingData.current.sectionTotalTimes.keys());
+      const sectionsViewed = viewedSections.length;
+      
+      let avgTime = 0;
+      if (sectionsViewed > 0) {
+        const totalSectionTime = Array.from(viewingData.current.sectionTotalTimes.values())
+          .reduce((sum, time) => sum + time, 0);
+        avgTime = totalSectionTime / sectionsViewed;
+      }
+      
+      return {
+        totalReadingTime: viewingData.current.totalReadingTime,
+        avgTime: avgTime / 1000,
+        sectionsViewed
+      };
+    };
+
+    // CRITICAL FIX: Very strict intersection observer
+    // Only mark as "viewing" if >70% visible and in center 60% of viewport
     const observerCallback = (entries) => {
       entries.forEach((entry) => {
-        const sectionId = entry.target.dataset.sectionId || entry.target.id;
+        const element = entry.target;
+        if (!element.textContent || element.textContent.trim().length < 30) return;
         
-        if (entry.isIntersecting) {
-          timeData.current.sections[sectionId] = {
-            startTime: Date.now()
-          };
-        } else if (timeData.current.sections[sectionId]?.startTime) {
-          const duration = Date.now() - timeData.current.sections[sectionId].startTime;
-          timeData.current.sections[sectionId].duration = duration;
-          
-          // Calculate average time per section
-          const durations = Object.values(timeData.current.sections)
-            .filter(s => s.duration)
-            .map(s => s.duration);
-          
-          timeData.current.avgTime = durations.length > 0
-            ? durations.reduce((a, b) => a + b, 0) / durations.length
-            : 0;
-          
-          updateInteraction();
+        const sectionId = element.dataset.sectionId;
+        
+        // STRICT: Element must be >70% visible to count
+        const isVisible = entry.isIntersecting && entry.intersectionRatio > 0.7;
+        
+        if (isVisible) {
+          if (!viewingData.current.currentlyViewing.has(sectionId)) {
+            viewingData.current.currentlyViewing.add(sectionId);
+            
+            if (!viewingData.current.sectionStartTimes.has(sectionId)) {
+              viewingData.current.sectionStartTimes.set(sectionId, Date.now());
+            }
+            if (!viewingData.current.sectionTotalTimes.has(sectionId)) {
+              viewingData.current.sectionTotalTimes.set(sectionId, 0);
+            }
+            
+            console.log(`👁️  Viewing: ${sectionId}`);
+          }
+        } else {
+          if (viewingData.current.currentlyViewing.has(sectionId)) {
+            viewingData.current.currentlyViewing.delete(sectionId);
+            console.log(`👋 Stopped: ${sectionId}`);
+          }
         }
       });
+      
+      if (viewingData.current.currentlyViewing.size > 0) {
+        console.log(`📖 Currently viewing ${viewingData.current.currentlyViewing.size} sections`);
+      }
     };
 
     const observer = new IntersectionObserver(observerCallback, {
-      threshold: 0.5
+      threshold: [0, 0.3, 0.5, 0.7, 0.9, 1.0],
+      // CRITICAL: This ensures sections are well within viewport
+      rootMargin: '-100px 0px -100px 0px'  // 100px from top and bottom
     });
 
-    // Observe all paragraphs and sections
-    const sections = container.querySelectorAll('p, section, div[data-section-id]');
-    sections.forEach((section) => observer.observe(section));
+    // Observe paragraphs and h3 only
+    setTimeout(() => {
+      const elements = container.querySelectorAll('p, h3');
+      console.log(`📝 Observing ${elements.length} elements`);
+      
+      elements.forEach((el, index) => {
+        const text = el.textContent.trim();
+        if (text.length > 30) {
+          el.dataset.sectionId = `section-${index}`;
+          observer.observe(el);
+        }
+      });
+    }, 500);
 
-    window.addEventListener('scroll', handleScroll);
+    // Update every 500ms
+    const readingTimer = setInterval(() => {
+      const timeData = updateReadingTime();
+      
+      onInteractionUpdate({
+        scroll: { ...scrollData.current },
+        hover: { ...hoverData.current },
+        time: timeData,
+        mouse: { ...mouseData.current }
+      });
+    }, 500);
+
+    // Event listeners
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
     container.addEventListener('mouseenter', handleMouseEnter, true);
     container.addEventListener('mouseleave', handleMouseLeave, true);
 
+    // Cleanup
     return () => {
+      clearInterval(readingTimer);
       window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseenter', handleMouseEnter, true);
       container.removeEventListener('mouseleave', handleMouseLeave, true);
       observer.disconnect();
+      console.log('🛑 Tracker stopped');
     };
-  }, []);
+  }, [onInteractionUpdate]);
 
-  const updateInteraction = () => {
-    onInteractionUpdate({
-      scroll: scrollData.current,
-      hover: hoverData.current,
-      time: timeData.current,
-      mouse: { erratic_score: Math.random() * 0.5 } // Simplified
-    });
-  };
-
-  return (
-    <div ref={containerRef} className="content-area">
-      {children}
-    </div>
-  );
+  return <div ref={containerRef}>{children}</div>;
 }

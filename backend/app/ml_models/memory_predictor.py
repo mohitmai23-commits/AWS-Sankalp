@@ -32,7 +32,7 @@ class MemoryRetentionPredictor:
             else:
                 return 3
         
-        # Prepare feature vector
+        # Prepare feature vector (only 7 features as model was trained)
         feature_vector = np.array([[
             features.get('quiz_score', 0.5),
             features.get('quiz_type', 0),  # 0=easy, 1=hard
@@ -40,8 +40,6 @@ class MemoryRetentionPredictor:
             features.get('engagement_avg', 0.5),
             features.get('cognitive_load', 0),  # 0=low, 1=high
             features.get('video_watched', 0),
-            features.get('video_pauses', 0),
-            features.get('audio_completed', 0),
             features.get('attempt_number', 1)
         ]])
         

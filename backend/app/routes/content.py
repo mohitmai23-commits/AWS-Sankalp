@@ -1,13 +1,14 @@
-
 """
 Content management routes
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 
 from ..database import get_db
 from ..models.progress import Progress
+from ..models.notification import Notification  # ADD THIS IMPORT
 
 router = APIRouter()
 
@@ -40,39 +41,63 @@ async def get_user_progress(user_id: int, db: Session = Depends(get_db)):
     }
 
 
+from pydantic import BaseModel
+
+class ProgressUpdate(BaseModel):
+    user_id: int
+    topic: str
+    subtopic: str
+    is_completed: bool = False
+
+
 @router.post("/progress/update")
 async def update_progress(
-    user_id: int,
-    topic: str,
-    subtopic: str,
-    is_completed: bool = False,
+    data: ProgressUpdate,
     db: Session = Depends(get_db)
 ):
     """
     Update user progress for a subtopic
     """
     progress = db.query(Progress).filter(
-        Progress.user_id == user_id,
-        Progress.topic == topic,
-        Progress.subtopic == subtopic
+        Progress.user_id == data.user_id,
+        Progress.topic == data.topic,
+        Progress.subtopic == data.subtopic
     ).first()
     
+    was_not_completed = False
     if progress:
-        progress.is_completed = is_completed
+        was_not_completed = not progress.is_completed and data.is_completed
+        progress.is_completed = data.is_completed
         progress.last_accessed = datetime.utcnow()
     else:
         progress = Progress(
-            user_id=user_id,
-            topic=topic,
-            subtopic=subtopic,
-            is_completed=is_completed
+            user_id=data.user_id,
+            topic=data.topic,
+            subtopic=data.subtopic,
+            is_completed=data.is_completed
         )
         db.add(progress)
+        was_not_completed = data.is_completed
     
     db.commit()
     db.refresh(progress)
     
-    return {"message": "Progress updated successfully"}
+    # CREATE NOTIFICATION when subtopic is completed for the first time
+    if was_not_completed:
+        notification = Notification(
+            user_id=data.user_id,
+            message=f"🎉 Congratulations! You completed {data.topic} - Subtopic {data.subtopic}!",
+            link=f"/physics/{data.topic.lower().replace(' ', '-')}/{data.subtopic}",
+            is_read=False
+        )
+        db.add(notification)
+        db.commit()
+    
+    return {
+        "message": "Progress updated successfully",
+        "is_completed": data.is_completed,
+        "notification_created": was_not_completed
+    }
 
 
 @router.post("/track")

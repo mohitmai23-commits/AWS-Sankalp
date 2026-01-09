@@ -1,17 +1,31 @@
 export const TOPICS = {
     'infinite-well': {
       name: 'Infinite Potential Well',
-      subtopics: ['1.1', '1.2', '1.3']
+      subtopics: ['1.1', '1.2', '1.3','1.4','1.5']
     },
     'finite-well': {
       name: 'Finite Potential Well',
-      subtopics: ['2.1', '2.2', '2.3']
+      subtopics: ['2.1', '2.2', '2.3','2.4']
     },
-    'tunnelling': {
+    'tunneling': {
       name: 'Tunnelling Effect',
-      subtopics: ['3.1', '3.2', '3.3']
+      subtopics: ['3.1', '3.2', '3.3','3.4']
     }
   };
+
+// Helper to get topic name from URL key
+export const getTopicNameFromKey = (key) => {
+  if (!key) return null;
+  const topic = TOPICS[key];
+  return topic ? topic.name : key;
+};
+
+// Helper to get topic key from name
+export const getTopicKeyFromName = (name) => {
+  if (!name) return null;
+  const entry = Object.entries(TOPICS).find(([, topic]) => topic.name === name);
+  return entry ? entry[0] : null;
+};
   
   export const PLACEHOLDER_CONTENT = {
     '1.1': {

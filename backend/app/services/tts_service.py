@@ -1,37 +1,39 @@
-"""
-Text-to-Speech service using Google Cloud TTS
-"""
-from google.cloud import texttospeech
-from ..config import settings
-import logging
 import os
+from google.cloud import texttospeech
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+# Initialize client only if credentials are available
+client: Optional[texttospeech.TextToSpeechClient] = None
 
-# Set Google credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.GOOGLE_APPLICATION_CREDENTIALS
+try:
+    creds_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    if creds_path and os.path.exists(creds_path):
+        client = texttospeech.TextToSpeechClient()
+        print("✅ Google TTS initialized successfully")
+    else:
+        print("⚠️  Google TTS credentials not found. TTS features disabled.")
+except Exception as e:
+    print(f"⚠️  Could not initialize Google TTS: {e}")
+    client = None
 
-client = texttospeech.TextToSpeechClient()
 
-
-async def text_to_speech(text: str) -> tuple[bytes, int]:
+def text_to_speech(text: str, output_file: str) -> bool:
     """
-    Convert text to speech using Google Cloud TTS
-    Returns: (audio_bytes, duration_seconds)
+    Convert text to speech and save to file
+    Returns True if successful, False if TTS not available
     """
+    if client is None:
+        print("TTS not available")
+        return False
+    
     try:
         synthesis_input = texttospeech.SynthesisInput(text=text)
-        
         voice = texttospeech.VoiceSelectionParams(
             language_code="en-US",
-            name="en-US-Neural2-J",
             ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
         )
-        
         audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=0.95,
-            pitch=0.0
+            audio_encoding=texttospeech.AudioEncoding.MP3
         )
         
         response = client.synthesize_speech(
@@ -40,16 +42,10 @@ async def text_to_speech(text: str) -> tuple[bytes, int]:
             audio_config=audio_config
         )
         
-        audio_bytes = response.audio_content
+        with open(output_file, "wb") as out:
+            out.write(response.audio_content)
         
-        # Estimate duration (rough: 150 words per minute)
-        word_count = len(text.split())
-        duration_seconds = int((word_count / 150) * 60)
-        
-        logger.info(f"Generated TTS audio: {len(audio_bytes)} bytes, ~{duration_seconds}s")
-        
-        return audio_bytes, duration_seconds
-    
+        return True
     except Exception as e:
-        logger.error(f"TTS error: {str(e)}")
-        raise Exception(f"Failed to generate audio: {str(e)}")
+        print(f"TTS error: {e}")
+        return False

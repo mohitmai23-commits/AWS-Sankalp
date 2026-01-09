@@ -1,4 +1,4 @@
-# Physics Whisperer - Adaptive Learning Platform
+# AnuJnana - Adaptive Learning Platform
 
 An AI-powered adaptive learning platform for Quantum Mechanics that dynamically adjusts content complexity based on real-time cognitive load detection and predicts memory retention for personalized revision reminders.
 

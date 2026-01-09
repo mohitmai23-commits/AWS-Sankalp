@@ -30,8 +30,15 @@ env.bak/
 venv.bak/
 
 # ML Models
-
+backend/models/*.pkl
+backend/models/*.pkl.zip
 mlruns/
+mlartifacts/
+
+# Large files
+Archive.zip
+frontend.zip
+*.zip
 
 # Data
 data/

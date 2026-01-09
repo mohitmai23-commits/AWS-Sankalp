@@ -31,7 +31,8 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const response = await axios.post('/auth/register', {
+      // FIXED: Added /api prefix
+      const response = await axios.post('/api/auth/register', {
         name,
         email,
         password
@@ -57,7 +58,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('/auth/login', {
+      // FIXED: Added /api prefix
+      const response = await axios.post('/api/auth/login', {
         email,
         password
       });

@@ -73,16 +73,36 @@ async def submit_quiz(
     db.add(prediction)
     db.commit()
     
-    # Send immediate email notification
+    # Send immediate email notification (non-blocking)
     from ..models.user import User
     user = db.query(User).filter(User.user_id == data.user_id).first()
     if user:
-        await send_immediate_prediction_email(
-            user.email,
-            user.name,
-            data.subtopic_id,
-            predicted_days
-        )
+        try:
+            # Convert weak_areas to dict format for email
+            weak_areas_list = []
+            if data.weak_areas:
+                weak_areas_list = [
+                    {
+                        "subtopic": wa.subtopic,
+                        "concept": wa.concept,
+                        "wrong_count": wa.wrong_count
+                    }
+                    for wa in data.weak_areas
+                ]
+            
+            await send_immediate_prediction_email(
+                email=user.email,
+                name=user.name,
+                subtopic=data.subtopic_id,
+                predicted_days=predicted_days,
+                score=data.score,
+                time_taken=data.time_taken,
+                total_questions=data.total_questions,
+                correct_answers=data.correct_answers,
+                weak_areas=weak_areas_list
+            )
+        except Exception as e:
+            print(f"Email sending failed (continuing anyway): {e}")
     
     return QuizResponse(
         quiz_id=quiz_result.quiz_id,

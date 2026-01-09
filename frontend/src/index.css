@@ -1,17 +1,33 @@
+/* Import Montserrat font */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+/* Bold headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+}
+
+/* Keep code & formulas readable */
+code,
+pre,
+.math,
+.formula {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 
+               'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+               'Helvetica Neue', sans-serif;
 }

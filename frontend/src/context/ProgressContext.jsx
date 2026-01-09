@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import axios from 'axios';
+import api from '../utils/api';
 
 const ProgressContext = createContext();
 
@@ -30,10 +30,11 @@ export const ProgressProvider = ({ children }) => {
     
     setLoading(true);
     try {
-      const response = await axios.get(`/api/content/progress/${user.user_id}`);
+      const response = await api.getProgress(user.user_id);
       setProgress(response.data.progress);
       setLastTopic(response.data.last_topic);
       setLastSubtopic(response.data.last_subtopic);
+      console.log('📊 Progress refreshed:', response.data);
     } catch (error) {
       console.error('Failed to fetch progress:', error);
     } finally {
@@ -42,19 +43,30 @@ export const ProgressProvider = ({ children }) => {
   };
 
   const updateProgress = async (topic, subtopic, isCompleted = false) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('⚠️ No user found, cannot update progress');
+      return;
+    }
     
     try {
-      await axios.post('/api/content/progress/update', {
+      console.log('📝 Updating progress:', { topic, subtopic, isCompleted });
+      
+      const response = await api.updateProgress({
         user_id: user.user_id,
         topic,
         subtopic,
         is_completed: isCompleted
       });
       
+      console.log('✅ Progress updated:', response.data);
+      
+      // Immediately refresh progress to update UI
       await fetchProgress();
+      
+      return response.data;
     } catch (error) {
-      console.error('Failed to update progress:', error);
+      console.error('❌ Failed to update progress:', error);
+      throw error;
     }
   };
 

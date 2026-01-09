@@ -14,7 +14,7 @@ export default function Navbar() {
               onClick={() => navigate('/dashboard')}
               className="text-2xl font-bold text-blue-900 cursor-pointer hover:text-blue-700 transition-colors"
             >
-              Physics Whisperer
+              AnuJnana
             </h1>
             
             <div className="flex space-x-4">
