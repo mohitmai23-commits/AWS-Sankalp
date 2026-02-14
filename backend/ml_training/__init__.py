@@ -1,3 +1,0 @@
-"""
-ML Training Package
-"""
