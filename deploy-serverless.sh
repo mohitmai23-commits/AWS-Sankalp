@@ -78,9 +78,9 @@ echo "⚡ Step 4: Creating Lambda Function..."
 
 # Environment variables
 ENV_VARS='{
-  "DATABASE_URL": "postgresql://postgres:REDACTED_DB_HOST:5432/anujnana",
-  "SECRET_KEY": "REDACTED_SECRET_KEY",
-  "GEMINI_API_KEY": "REDACTED_GEMINI_KEY",
+  "DATABASE_URL": "postgresql://postgres:<DB_PASSWORD>@<RDS_ENDPOINT>:5432/anujnana",
+  "SECRET_KEY": "<YOUR_SECRET_KEY>",
+  "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
   "COGNITIVE_LOAD_MODEL_PATH": "models/cognitive_load_model.pkl",
   "MEMORY_RETENTION_MODEL_PATH": "models/memory_retention_model.pkl"
 }'
