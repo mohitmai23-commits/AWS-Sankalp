@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+*.egg-info/
+.venv/
+venv/
+
+# Exclude ML training & unused files
+ml_training/
+mlartifacts/
+mlruns/
+mlflow.db
+data/
+
+# Exclude large unused model
+models/ensemble_engagement_model.pkl
+models/*_scaler.pkl
+models/*_features.pkl
+
+# Dev files
+*.md
+testing.py
+teacher_*.py
+back.py
+application.py

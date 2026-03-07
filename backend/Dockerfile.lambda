@@ -1,0 +1,19 @@
+# Lambda Container Image for ML Backend
+FROM public.ecr.aws/lambda/python:3.11
+
+# Install system dependencies (gcc, g++ for scipy/numpy build)
+RUN yum install -y gcc gcc-c++ postgresql-devel
+
+# Copy requirements and install (use only pre-built wheels)
+COPY requirements-lambda.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --only-binary=:all: numpy scipy scikit-learn pandas opencv-python-headless && \
+    pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements-lambda.txt
+
+# Copy application code
+COPY app/ ${LAMBDA_TASK_ROOT}/app/
+COPY models/ ${LAMBDA_TASK_ROOT}/models/
+COPY lambda_handler.py ${LAMBDA_TASK_ROOT}/
+
+# Set the handler
+CMD ["lambda_handler.handler"]

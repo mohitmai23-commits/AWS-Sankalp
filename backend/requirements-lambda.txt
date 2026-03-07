@@ -1,0 +1,40 @@
+# Core FastAPI
+fastapi==0.109.0
+mangum==0.17.0
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# Redis
+redis==5.0.1
+
+# ML - pre-built wheels (REQUIRED for predictions)
+# Use specific versions with manylinux aarch64 wheels
+numpy==1.26.4
+scipy==1.11.4
+scikit-learn==1.3.2
+pandas==2.1.4
+joblib==1.3.2
+xgboost==2.0.3
+
+# Computer Vision for engagement detection
+opencv-python-headless==4.8.1.78
+
+# API & Services
+google-generativeai==0.3.2
+pydantic[email]==2.5.3
+pydantic-settings==2.1.0
+httpx==0.26.0
+email-validator==2.1.0
+
+# AWS SDK for SES
+boto3==1.34.25
+
+# Utils
+python-dotenv==1.0.0
+aiofiles==23.2.1
