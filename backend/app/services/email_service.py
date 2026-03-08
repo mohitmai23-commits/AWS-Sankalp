@@ -1,6 +1,6 @@
 """
-Email service using AWS SES (Simple Email Service)
-Uses boto3 SDK - no SMTP credentials needed when running on Lambda with IAM role
+Email service with AWS SES (primary) and SendGrid (fallback)
+Tries SES first; if SES fails (sandbox restriction, timeout, etc.), falls back to SendGrid.
 """
 import boto3
 from botocore.exceptions import ClientError
@@ -10,6 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# ─── SES (Primary) ────────────────────────────────────────────
+
 def get_ses_client():
     return boto3.client("ses", region_name=settings.SES_REGION)
 
@@ -17,26 +19,61 @@ def get_ses_client():
 def send_email_ses(to_email: str, subject: str, html_content: str):
     """Send email via AWS SES"""
     ses = get_ses_client()
+    response = ses.send_email(
+        Source=f"{settings.SES_FROM_NAME} <{settings.SES_FROM_EMAIL}>",
+        Destination={"ToAddresses": [to_email]},
+        Message={
+            "Subject": {"Data": subject, "Charset": "UTF-8"},
+            "Body": {"Html": {"Data": html_content, "Charset": "UTF-8"}}
+        }
+    )
+    message_id = response.get("MessageId", "unknown")
+    logger.info(f"SES email sent to {to_email} (MessageId: {message_id})")
+    return message_id
+
+
+# ─── SendGrid (Fallback) ──────────────────────────────────────
+
+def send_email_sendgrid(to_email: str, subject: str, html_content: str):
+    """Send email via SendGrid (fallback when SES fails)"""
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, Email, To, Content
+
+    if not settings.SENDGRID_API_KEY:
+        raise ValueError("SENDGRID_API_KEY not configured")
+
+    message = Mail(
+        from_email=Email(settings.SENDGRID_FROM_EMAIL, settings.SES_FROM_NAME),
+        to_emails=To(to_email),
+        subject=subject,
+        html_content=Content("text/html", html_content)
+    )
+    sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+    response = sg.send(message)
+    logger.info(f"SendGrid email sent to {to_email} (status: {response.status_code})")
+    return response.status_code
+
+
+# ─── Unified Send (SES → SendGrid fallback) ───────────────────
+
+def send_email(to_email: str, subject: str, html_content: str):
+    """Send email: try SES first, fall back to SendGrid on failure"""
+    # Try SES first
     try:
-        response = ses.send_email(
-            Source=f"{settings.SES_FROM_NAME} <{settings.SES_FROM_EMAIL}>",
-            Destination={"ToAddresses": [to_email]},
-            Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {"Html": {"Data": html_content, "Charset": "UTF-8"}}
-            }
-        )
-        message_id = response.get("MessageId", "unknown")
-        logger.info(f"SES email sent to {to_email} (MessageId: {message_id})")
-        return message_id
-    except ClientError as e:
-        error_code = e.response["Error"]["Code"]
-        error_msg = e.response["Error"]["Message"]
-        logger.error(f"SES error ({error_code}): {error_msg}")
-        raise
-    except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
-        raise
+        result = send_email_ses(to_email, subject, html_content)
+        logger.info(f"Email sent via SES to {to_email}")
+        return result
+    except Exception as ses_error:
+        logger.warning(f"SES failed for {to_email}: {str(ses_error)}. Trying SendGrid...")
+
+    # Fallback to SendGrid
+    try:
+        result = send_email_sendgrid(to_email, subject, html_content)
+        logger.info(f"Email sent via SendGrid (fallback) to {to_email}")
+        return result
+    except Exception as sg_error:
+        logger.error(f"SendGrid also failed for {to_email}: {str(sg_error)}")
+        raise Exception(f"All email services failed. SES: {ses_error}, SendGrid: {sg_error}")
 
 
 async def send_verification_email(email: str, name: str, verification_token: str, frontend_url: str):
@@ -77,7 +114,7 @@ async def send_verification_email(email: str, name: str, verification_token: str
     </html>
     """
     try:
-        send_email_ses(email, subject, html_content)
+        send_email(email, subject, html_content)
         logger.info(f"Verification email sent to {email}")
     except Exception as e:
         logger.error(f"Failed to send verification email to {email}: {str(e)}")
@@ -95,7 +132,7 @@ async def send_password_email(email: str, name: str, password: str):
     </body></html>
     """
     try:
-        send_email_ses(email, subject, html_content)
+        send_email(email, subject, html_content)
     except Exception as e:
         logger.error(f"Failed to send password email: {str(e)}")
         raise
@@ -181,7 +218,7 @@ async def send_immediate_prediction_email(
     </html>
     """
     try:
-        send_email_ses(email, subject, html_content)
+        send_email(email, subject, html_content)
         logger.info(f"Quiz results email sent to {email}")
     except Exception as e:
         logger.error(f"Failed to send prediction email: {str(e)}")
@@ -199,6 +236,6 @@ async def send_revision_reminder(email: str, name: str, subtopic: str, link: str
     </body></html>
     """
     try:
-        send_email_ses(email, subject, html_content)
+        send_email(email, subject, html_content)
     except Exception as e:
         logger.error(f"Failed to send revision reminder: {str(e)}")

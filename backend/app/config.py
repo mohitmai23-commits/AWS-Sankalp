@@ -14,10 +14,14 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # Email (AWS SES)
+    # Email (AWS SES - primary)
     SES_REGION: str = "ap-south-1"
     SES_FROM_EMAIL: str = "mohitm.ai23@rvce.edu.in"
     SES_FROM_NAME: str = "AnuJnana"
+    
+    # Email (SendGrid - fallback)
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = "mohitm.ai23@rvce.edu.in"
     
     # Frontend URL for verification links
     FRONTEND_URL: str = "https://dwq4qowib3s87.cloudfront.net"

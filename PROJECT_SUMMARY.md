@@ -50,7 +50,7 @@ India's physics education faces a **critical gap: one-size-fits-all teaching** i
 - **Engagement Rate:** 78% average session completion (vs. 45% industry benchmark)
 - **Quiz Performance:** Students using adaptive hints score 23% higher than baseline
 - **Retention:** Memory retention predictions show 65% reduction in forgotten concepts after 30 days
-- **Accessibility:** 100% functional on low-bandwidth networks; offline-capable for rural India
+- **Accessibility:** 100% functional on low-bandwidth networks;
 
 ---
 
